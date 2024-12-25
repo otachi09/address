@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store Locations on OpenStreetMap</title>
+  <!-- Link to Leaflet CSS for Map Styling -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <style>
+    /* Style the map container */
+    #map {
+      height: 500px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+  <h3>Store Locations</h3>
+  <div id="map"></div>
+
+  <h4>Find Nearest Store</h4>
+  <form id="addressForm">
+    <label for="address">Enter Address:</label>
+    <input type="text" id="address" name="address" required />
+    <button type="submit">Find Nearest Store</button>
+  </form>
+
+  <p id="nearestStore"></p>
+  <p id="distance"></p>
+
+  <!-- Add your JavaScript here -->
+  <script>
+    // Initialize the map centered on a default location (e.g., Makati)
+    var map = L.map('map').setView([14.565111, 121.029889], 12); // Default to Makati coordinates
+
+    // Add the OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Store data (sample from your request)
+    var stores = [
+    { "id": 1, "name": "G6 Cafe EDSA Guadalupe Branch", "lat": 14.564667, "lng": 121.045167 },
+    { "id": 2, "name": "G6 Cafe Makati Ave. Branch", "lat": 14.565111, "lng": 121.029889 },
+    { "id": 3, "name": "G6 Cafe  Timog Ave., Quezon City Branch", "lat": 14.634907, "lng": 121.037490 },
+    { "id": 4, "name": "G6 Cafe UST Branch", "lat": 14.611944, "lng": 120.988250 },
+    { "id": 5, "name": "G6 Cafe Caloocan Branch", "lat": 14.651833, "lng": 120.977083 },
+    { "id": 6, "name": "G6 Cafe Karuhatan, Valenzuela City Branch", "lat": 14.683806, "lng": 120.977361 },
+    { "id": 7, "name": "G6 Cafe Valenzuela Branch", "lat": 14.705417, "lng": 120.989417 },
+    { "id": 8, "name": "G6 Cafe Tondo, Manila Branch", "lat": 14.607000, "lng": 120.966861 },
+    { "id": 9, "name": "G6 Cafe Malabon Branch", "lat": 14.660417, "lng": 120.951389 },
+    { "id": 10, "name": "G6 Cafe Marilao Branch", "lat": 14.765312502225738, "lng": 120.96303895378405 },
+    { "id": 11, "name": "G6 Cafe Maginhawa Branch", "lat": 14.646462329467116, "lng": 121.05994100960814 },
+    { "id": 12, "name": "G6 Cafe Eastwood, Quezon City Branch", "lat": 14.610476961805494, "lng": 121.08137521324323 },
+    { "id": 13, "name": "G6 Cafe Tomas Morato Ave., Quezon City Branch", "lat": 14.637358481410566, "lng": 121.03574659070495 },
+    { "id": 14, "name": "G6 Cafe East Kapitolyo, Pasig City Branch", "lat": 14.569904297281166, "lng": 121.06023714392221 },
+    { "id": 15, "name": "G6 Cafe Fairview Terraces, Quezon City Branch", "lat": 14.735937949695424, "lng": 121.060}
+  ]
+
+    // Add a marker for each store to the map
+    stores.forEach(function(store) {
+        L.marker([store.lat, store.lng])
+            .addTo(map)
+            .bindPopup("<b>" + store.name + "</b><br>Lat: " + store.lat + ", Lng: " + store.lng);
+    });
+
+    // Function to get coordinates from the address using OpenStreetMap's Nominatim API
+    function getCoordinates(address, callback) {
+      var url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          if (data.length > 0) {
+            var lat = parseFloat(data[0].lat);
+            var lng = parseFloat(data[0].lon);
+            callback(lat, lng);
+          } else {
+            alert("Address not found.");
+          }
+        })
+        .catch(error => console.error('Error getting coordinates:', error));
+    }
+
+    // Function to find the nearest store
+    function findNearestStore(userLat, userLng) {
+      let nearestStore = null;
+      let minDistance = Infinity;
+      let nearestStoreLat, nearestStoreLng;
+
+      stores.forEach(function(store) {
+        var storeLatLng = [store.lat, store.lng];
+        var userLatLng = [userLat, userLng];
+        var distance = map.distance(userLatLng, storeLatLng);  // Distance in meters
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestStore = store;
+          nearestStoreLat = store.lat;
+          nearestStoreLng = store.lng;
+        }
+      });
+
+      return { nearestStore, nearestStoreLat, nearestStoreLng, minDistance };
+    }
+
+    // Handle the form submission to find the nearest store
+    document.getElementById('addressForm').addEventListener('submit', function(event) {
+      event.preventDefault();  // Prevents the default form submission
+
+      // Get the address input from the user
+      var address = document.getElementById('address').value;
+
+      // Validate the address input
+      if (!address.trim()) {
+        alert("Please enter an address.");
+        return;
+      }
+
+      // Get coordinates from address and find the nearest store
+      getCoordinates(address, function(userLat, userLng) {
+        // Find the nearest store
+        var result = findNearestStore(userLat, userLng);
+
+        if (result.nearestStore) {
+          // Display nearest store and distance
+          document.getElementById('nearestStore').innerText = "Nearest Store: " + result.nearestStore.name;
+          document.getElementById('distance').innerText = "Distance: " + (result.minDistance / 1000).toFixed(2) + " km";
+
+          // Zoom map to the nearest store and add a marker for it
+          map.setView([result.nearestStoreLat, result.nearestStoreLng], 14);  // Zoom to the store
+          L.marker([result.nearestStoreLat, result.nearestStoreLng])
+            .addTo(map)
+            .bindPopup("<b>" + result.nearestStore.name + "</b><br>Lat: " + result.nearestStoreLat + ", Lng: " + result.nearestStoreLng);
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
